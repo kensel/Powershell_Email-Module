@@ -1,0 +1,13 @@
+.git/
+.gitattributes
+.gitignore
+.github/
+*.md
+LICENSE
+docs/
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+SECURITY.md
+test/EmailLibraryTestingCore/
+test/EmailLibraryTestingFramework/

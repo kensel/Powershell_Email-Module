@@ -301,8 +301,8 @@ public class EmailCommands
         result["References"] = msg.References;
 
         result["MimeVersion"] = msg.MimeVersion?.ToString();
-        result["ContentType"] = msg.ContentType?.MimeType;
-        result["ContentTransferEncoding"] = msg.ContentTransferEncoding.ToString();
+        result["ContentType"] = msg.Body?.ContentType?.MimeType;
+        result["ContentTransferEncoding"] = msg.Body is MimePart mp ? mp.ContentTransferEncoding.ToString() : null;
 
         result["BodyText"] = msg.TextBody;
         result["BodyHtml"] = msg.HtmlBody;
