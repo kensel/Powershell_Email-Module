@@ -414,7 +414,76 @@ function Send-Email {
     #>
 }
 
-Export-ModuleMember Send-Email
+function Get-MimeMessage {
+    [CmdletBinding(HelpUri = 'https://github.com/Brandon-J-Navarro/Powershell_Email-Module')]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [ValidateScript({Test-Path $_})]
+        [string]
+        # Specifies the path to the .eml file to load.
+        $Path,
+
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [ValidateSet('MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512', IgnoreCase = $true)]
+        [string]
+        # Specifies the hash algorithm to compute a body hash.
+        # The hash is computed against BodyHtml if present, otherwise BodyText.
+        # The value is appended as: BodyHtml=<HashType>=<hash> or BodyText=<HashType>=<hash>
+        $BodyHash
+    )
+
+    [PSCustomObject][EmailCommands]::LoadMimeMessage((Resolve-Path -Path $Path | Select-Object -ExpandProperty Path), $BodyHash)
+
+    <#
+    .SYNOPSIS
+    Loads an EML file and returns all MIME message properties as a PowerShell object.
+
+    .DESCRIPTION
+    The Get-MimeMessage function loads a .eml file using the MimeKit library and returns
+    all relevant properties as a flat [PSCustomObject]. Properties include MessageId, Date,
+    Subject, From, To, Cc, Bcc, ReplyTo, Sender, Priority, Importance, body content (plain
+    text and HTML), attachments, headers (as JSON), and more.
+
+    An optional -BodyHash parameter computes a hash of the body content (BodyHtml if present,
+    otherwise BodyText) and adds a BodyHash property with the format:
+        BodyHtml=<HashType>=<hex_hash>  or  BodyText=<HashType>=<hex_hash>
+
+    Supported hash algorithms: MD5, SHA1, SHA256, SHA384, SHA512
+
+    .INPUTS
+    System.String
+    You can pipe a file path to Get-MimeMessage.
+
+    .OUTPUTS
+    System.Management.Automation.PSCustomObject
+    Get-MimeMessage returns a custom object with properties from the parsed EML file.
+
+    .EXAMPLE
+    # Basic usage
+    Get-MimeMessage -Path 'email.eml'
+
+    .EXAMPLE
+    # With body hash
+    Get-MimeMessage -Path 'email.eml' -BodyHash SHA256
+
+    .EXAMPLE
+    # Pipeline
+    Get-ChildItem *.eml | Get-MimeMessage | Export-Csv emails.csv -NoTypeInformation
+
+    .EXAMPLE
+    # Pipeline with body hash
+    Get-ChildItem *.eml | Get-MimeMessage -BodyHash SHA256 | ForEach-Object {
+        Write-Output "Subject: $($_.Subject)"
+        Write-Output "BodyHash: $($_.BodyHash)"
+    }
+
+    .LINK
+    Source Code: https://github.com/Brandon-J-Navarro/Powershell_Email-Module
+    #>
+}
+
+Export-ModuleMember Send-Email, Get-MimeMessage
 
 
 # Show banner after module is imported (optional)

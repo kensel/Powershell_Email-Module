@@ -3,8 +3,11 @@ using MimeKit;
 using MailKit.Security;
 using System.Net;
 using System;
-using Microsoft.AspNetCore.StaticFiles;
+using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.StaticFiles;
 using static EmailLibrary.Builders;
 
 public class EmailCommands
@@ -269,5 +272,126 @@ public class EmailCommands
 #endif
 
         return mailSent;
+    }
+
+    public static Dictionary<string, object?> LoadMimeMessage(string filePath, string? bodyHash = null)
+    {
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException($"EML file not found: {filePath}", filePath);
+
+        var msg = MimeMessage.Load(filePath);
+        var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        result["MessageId"] = msg.MessageId;
+        result["Date"] = msg.Date.UtcDateTime;
+        result["Subject"] = msg.Subject;
+
+        result["From"] = FormatInternetAddressList(msg.From);
+        result["Sender"] = msg.Sender != null ? FormatMailboxAddress(msg.Sender) : null;
+        result["ReplyTo"] = FormatInternetAddressList(msg.ReplyTo);
+        result["To"] = FormatInternetAddressList(msg.To);
+        result["Cc"] = FormatInternetAddressList(msg.Cc);
+        result["Bcc"] = FormatInternetAddressList(msg.Bcc);
+
+        result["Priority"] = msg.Priority.ToString();
+        result["Importance"] = msg.Importance.ToString();
+        result["XPriority"] = msg.XPriority.ToString();
+
+        result["InReplyTo"] = msg.InReplyTo;
+        result["References"] = msg.References;
+
+        result["MimeVersion"] = msg.MimeVersion?.ToString();
+        result["ContentType"] = msg.ContentType?.MimeType;
+        result["ContentTransferEncoding"] = msg.ContentTransferEncoding.ToString();
+
+        result["BodyText"] = msg.TextBody;
+        result["BodyHtml"] = msg.HtmlBody;
+
+        var attachmentNames = new List<string>();
+        foreach (var attachment in msg.Attachments)
+        {
+            if (attachment is MimePart part && !string.IsNullOrEmpty(part.FileName))
+                attachmentNames.Add(part.FileName);
+        }
+        result["Attachments"] = attachmentNames.Count > 0 ? string.Join("; ", attachmentNames) : null;
+
+        result["Headers"] = SerializeHeaders(msg.Headers);
+
+        if (!string.IsNullOrEmpty(bodyHash))
+        {
+            var bodyContent = !string.IsNullOrEmpty(msg.HtmlBody) ? msg.HtmlBody : msg.TextBody;
+            if (bodyContent != null)
+            {
+                using var hasher = CreateHasher(bodyHash);
+                if (hasher != null)
+                {
+                    var hashBytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(bodyContent));
+                    var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                    var prefix = !string.IsNullOrEmpty(msg.HtmlBody) ? "BodyHtml" : "BodyText";
+                    result["BodyHash"] = $"{prefix}={bodyHash.ToUpperInvariant()}={hashString}";
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static string FormatInternetAddressList(InternetAddressList list)
+    {
+        if (list == null || list.Count == 0) return string.Empty;
+        var parts = new List<string>(list.Count);
+        foreach (var addr in list)
+        {
+            parts.Add(addr is MailboxAddress mailbox ? FormatMailboxAddress(mailbox) : addr.ToString());
+        }
+        return string.Join("; ", parts);
+    }
+
+    private static string FormatMailboxAddress(MailboxAddress addr)
+    {
+        return string.IsNullOrEmpty(addr.Name) ? addr.Address : $"{addr.Name} <{addr.Address}>";
+    }
+
+    private static string SerializeHeaders(HeaderList headers)
+    {
+        if (headers == null || headers.Count == 0) return "{}";
+        var sb = new StringBuilder();
+        sb.Append('{');
+        bool first = true;
+        foreach (var header in headers)
+        {
+            if (!first) sb.Append(", ");
+            first = false;
+            sb.Append('"');
+            sb.Append(EscapeJson(header.Field));
+            sb.Append("\": \"");
+            sb.Append(EscapeJson(header.Value));
+            sb.Append('"');
+        }
+        sb.Append('}');
+        return sb.ToString();
+    }
+
+    private static HashAlgorithm? CreateHasher(string? hashName)
+    {
+        if (string.IsNullOrEmpty(hashName)) return null;
+        return hashName.ToUpperInvariant() switch
+        {
+            "MD5" => MD5.Create(),
+            "SHA1" => SHA1.Create(),
+            "SHA256" => SHA256.Create(),
+            "SHA384" => SHA384.Create(),
+            "SHA512" => SHA512.Create(),
+            _ => null,
+        };
+    }
+
+    private static string EscapeJson(string s)
+    {
+        return s.Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t");
     }
 }

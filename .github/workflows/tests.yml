@@ -864,6 +864,79 @@ jobs:
               -EmailPriority $EmailPriority -EmailImportance $EmailImportance `
               -EmailAttachment $EmailAttachment
 
+      - name: Integration Test - Get-MimeMessage Basic Parsing
+        shell: pwsh
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          $lines = @(
+              'From: Test Sender <sender@example.com>',
+              'To: Test Recipient <recipient@example.com>',
+              'Subject: Test Email Subject',
+              'Date: Thu, 01 Jan 2026 12:00:00 +0000',
+              'Message-ID: <test-message-id@example.com>',
+              'MIME-Version: 1.0',
+              'Content-Type: multipart/mixed; boundary="b"',
+              '',
+              '--b',
+              'Content-Type: text/plain',
+              '',
+              'Text body.',
+              '--b',
+              'Content-Type: text/html',
+              '',
+              '<b>HTML</b> body.',
+              '--b',
+              'Content-Type: text/plain',
+              'Content-Disposition: attachment; filename="test.txt"',
+              '',
+              'Attachment content.',
+              '--b--'
+          )
+          $lines -join "`r`n" | Out-File -FilePath test.eml -Encoding ASCII
+          $msg = Get-MimeMessage -Path test.eml
+          if ($msg.Subject -ne "Test Email Subject") { throw "Subject mismatch: $($msg.Subject)" }
+          if (!$msg.From.Contains('sender@example.com')) { throw "From mismatch: $($msg.From)" }
+          if (!$msg.To.Contains('recipient@example.com')) { throw "To mismatch: $($msg.To)" }
+          if (!$msg.BodyText.Contains('Text body.')) { throw "BodyText mismatch" }
+          if (!$msg.BodyHtml.Contains('HTML')) { throw "BodyHtml mismatch" }
+          if ($msg.MessageId -ne '<test-message-id@example.com>') { throw "MessageId mismatch: $($msg.MessageId)" }
+          if (!$msg.Attachments.Contains('test.txt')) { throw "Attachments mismatch: $($msg.Attachments)" }
+          Write-Output "Get-MimeMessage basic parsing: PASS"
+
+      - name: Integration Test - Get-MimeMessage Body Hash
+        shell: pwsh
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          $msg = Get-MimeMessage -Path test.eml -BodyHash SHA256
+          if (!$msg.BodyHash) { throw "BodyHash should not be empty" }
+          if ($msg.BodyHash -notmatch '^BodyHtml=SHA256=[a-f0-9]{64}$') { throw "BodyHash format mismatch: $($msg.BodyHash)" }
+          Write-Output "BodyHash value: $($msg.BodyHash)"
+          $msg2 = Get-MimeMessage -Path test.eml -BodyHash MD5
+          if ($msg2.BodyHash -notmatch '^BodyHtml=MD5=[a-f0-9]{32}$') { throw "MD5 BodyHash format mismatch: $($msg2.BodyHash)" }
+          Write-Output "Get-MimeMessage body hash: PASS"
+
+      - name: Integration Test - Get-MimeMessage File Not Found
+        shell: pwsh
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          try {
+              Get-MimeMessage -Path nonexistent-file.eml
+              throw "Expected error was not thrown"
+          } catch {
+              if ($_.Exception.Message -notmatch 'not found') { throw "Unexpected error: $($_.Exception.Message)" }
+          }
+          Write-Output "Get-MimeMessage file not found error: PASS"
+
+      - name: Integration Test - Get-MimeMessage Pipeline
+        shell: pwsh
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          $results = Get-ChildItem *.eml | Get-MimeMessage
+          if ($results.Count -lt 1) { throw "Pipeline should return results" }
+          $result = $results | Where-Object { $_.Subject -eq 'Test Email Subject' }
+          if (!$result) { throw "Pipeline result missing expected test email" }
+          Write-Output "Get-MimeMessage pipeline: PASS"
+
   # Integration Tests Desktop
   integration-test-desktop:
     environment: Build and Test PowerShell Module
@@ -1421,6 +1494,78 @@ jobs:
             write-host "Not windows"
           }
 
+      - name: Integration Test - Get-MimeMessage Basic Parsing
+        shell: powershell
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          $lines = @(
+              'From: Test Sender <sender@example.com>',
+              'To: Test Recipient <recipient@example.com>',
+              'Subject: Test Email Subject',
+              'Date: Thu, 01 Jan 2026 12:00:00 +0000',
+              'Message-ID: <test-message-id@example.com>',
+              'MIME-Version: 1.0',
+              'Content-Type: multipart/mixed; boundary="b"',
+              '',
+              '--b',
+              'Content-Type: text/plain',
+              '',
+              'Text body.',
+              '--b',
+              'Content-Type: text/html',
+              '',
+              '<b>HTML</b> body.',
+              '--b',
+              'Content-Type: text/plain',
+              'Content-Disposition: attachment; filename="test.txt"',
+              '',
+              'Attachment content.',
+              '--b--'
+          )
+          $lines -join "`r`n" | Out-File -FilePath test.eml -Encoding ASCII
+          $msg = Get-MimeMessage -Path test.eml
+          if ($msg.Subject -ne "Test Email Subject") { throw "Subject mismatch: $($msg.Subject)" }
+          if (!$msg.From.Contains('sender@example.com')) { throw "From mismatch: $($msg.From)" }
+          if (!$msg.To.Contains('recipient@example.com')) { throw "To mismatch: $($msg.To)" }
+          if (!$msg.BodyText.Contains('Text body.')) { throw "BodyText mismatch" }
+          if (!$msg.BodyHtml.Contains('HTML')) { throw "BodyHtml mismatch" }
+          if ($msg.MessageId -ne '<test-message-id@example.com>') { throw "MessageId mismatch: $($msg.MessageId)" }
+          if (!$msg.Attachments.Contains('test.txt')) { throw "Attachments mismatch: $($msg.Attachments)" }
+          Write-Output "Get-MimeMessage basic parsing: PASS"
+
+      - name: Integration Test - Get-MimeMessage Body Hash
+        shell: powershell
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          $msg = Get-MimeMessage -Path test.eml -BodyHash SHA256
+          if (!$msg.BodyHash) { throw "BodyHash should not be empty" }
+          if ($msg.BodyHash -notmatch '^BodyHtml=SHA256=[a-f0-9]{64}$') { throw "BodyHash format mismatch: $($msg.BodyHash)" }
+          Write-Output "BodyHash value: $($msg.BodyHash)"
+          $msg2 = Get-MimeMessage -Path test.eml -BodyHash MD5
+          if ($msg2.BodyHash -notmatch '^BodyHtml=MD5=[a-f0-9]{32}$') { throw "MD5 BodyHash format mismatch: $($msg2.BodyHash)" }
+          Write-Output "Get-MimeMessage body hash: PASS"
+
+      - name: Integration Test - Get-MimeMessage File Not Found
+        shell: powershell
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          try {
+              Get-MimeMessage -Path nonexistent-file.eml
+              throw "Expected error was not thrown"
+          } catch {
+              if ($_.Exception.Message -notmatch 'not found') { throw "Unexpected error: $($_.Exception.Message)" }
+          }
+          Write-Output "Get-MimeMessage file not found error: PASS"
+
+      - name: Integration Test - Get-MimeMessage Pipeline
+        shell: powershell
+        run: |
+          Import-Module .\EmailModule\EmailModule.psm1
+          $results = Get-ChildItem *.eml | Get-MimeMessage
+          if ($results.Count -lt 1) { throw "Pipeline should return results" }
+          $result = $results | Where-Object { $_.Subject -eq 'Test Email Subject' }
+          if (!$result) { throw "Pipeline result missing expected test email" }
+          Write-Output "Get-MimeMessage pipeline: PASS"
 
   deployment-status:
     needs: [ build, integration-test-core, integration-test-desktop ]

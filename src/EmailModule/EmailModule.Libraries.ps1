@@ -39,8 +39,8 @@ function Get-Banner {
     Write-Output "  / _//  ' \/ _ '/ / / / /|_/ / _ \/ _  / // / / -_) "
     Write-Output " /___/_/_/_/\_,_/_/_/ /_/  /_/\___/\_,_/\_,_/_/\__/  "
     Write-Output ""
-    Write-Output "Cmdlets available:" -NoNewline
-    Write-Output " Send-Email"
-    Write-Output "Get help for Send-Email cmdlet:" -NoNewline
-    Write-Output " Get-Help Send-Email or Send-Email -?"
+Write-Output "Cmdlets available:" -NoNewline
+Write-Output " Send-Email, Get-MimeMessage"
+Write-Output "Get help:" -NoNewline
+Write-Output " Get-Help Send-Email or Get-Help Get-MimeMessage"
 }
