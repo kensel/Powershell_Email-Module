@@ -325,7 +325,7 @@ public class EmailCommands
         }
         result["Attachments"] = attachmentNames.Count > 0 ? string.Join("; ", attachmentNames) : null;
 
-        result["Headers"] = SerializeHeaders(msg.Headers);
+        result["Headers"] = ConvertHeadersToDictionary(msg.Headers);
 
         if (!string.IsNullOrEmpty(bodyHash))
         {
@@ -362,24 +362,16 @@ public class EmailCommands
         return string.IsNullOrEmpty(addr.Name) ? addr.Address : $"{addr.Name} <{addr.Address}>";
     }
 
-    private static string SerializeHeaders(HeaderList headers)
+    private static object ConvertHeadersToDictionary(HeaderList headers)
     {
-        if (headers == null || headers.Count == 0) return "{}";
-        var sb = new StringBuilder();
-        sb.Append('{');
-        bool first = true;
+        if (headers == null || headers.Count == 0) return null;
+        
+        var headerDict = new Dictionary<string, object>();
         foreach (var header in headers)
         {
-            if (!first) sb.Append(", ");
-            first = false;
-            sb.Append('"');
-            sb.Append(EscapeJson(header.Field));
-            sb.Append("\": \"");
-            sb.Append(EscapeJson(header.Value));
-            sb.Append('"');
+            headerDict[header.Field] = header.Value;
         }
-        sb.Append('}');
-        return sb.ToString();
+        return headerDict;
     }
 
     private static HashAlgorithm? CreateHasher(string? hashName)
@@ -394,14 +386,5 @@ public class EmailCommands
             "SHA512" => SHA512.Create(),
             _ => null,
         };
-    }
-
-    private static string EscapeJson(string s)
-    {
-        return s.Replace("\\", "\\\\")
-                .Replace("\"", "\\\"")
-                .Replace("\n", "\\n")
-                .Replace("\r", "\\r")
-                .Replace("\t", "\\t");
     }
 }
