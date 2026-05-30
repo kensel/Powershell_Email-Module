@@ -42,7 +42,7 @@ jobs:
         id: tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
-          github_token: ${{ secrets.TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup MSBuild .NET Framework Build
         uses: microsoft/setup-msbuild@v2.0.0
@@ -251,13 +251,13 @@ jobs:
           $version = $version  -replace 'v', ''
           nuget pack .\release\EmailModule\$version\EmailModule.nuspec -Properties Configuration=Release
 
-      - name: Publish NuGet Package
-        run: |
-          $version = '${{ steps.tag_version.outputs.new_tag }}'
-          $version = $version  -replace 'v', ''
-          Copy-Item -Path ".\EmailModule.$version.nupkg" -Destination ".\release\EmailModule\$version\"
-          dotnet nuget add source https://nuget.pkg.github.com/Brandon-J-Navarro/index.json --name github --username Brandon-J-Navarro --password ${{ secrets.PACKAGE_TOKEN }}
-          dotnet nuget push ".\EmailModule.$version.nupkg" --api-key ${{ secrets.PACKAGE_TOKEN }} --source "github"
+      # - name: Publish NuGet Package
+      #   run: |
+      #     $version = '${{ steps.tag_version.outputs.new_tag }}'
+      #     $version = $version  -replace 'v', ''
+      #     Copy-Item -Path ".\EmailModule.$version.nupkg" -Destination ".\release\EmailModule\$version\"
+      #     dotnet nuget add source https://nuget.pkg.github.com/Brandon-J-Navarro/index.json --name github --username Brandon-J-Navarro --password ${{ secrets.PACKAGE_TOKEN }}
+      #     dotnet nuget push ".\EmailModule.$version.nupkg" --api-key ${{ secrets.PACKAGE_TOKEN }} --source "github"
 
       - name: Zip the release directory
         run: |
@@ -276,8 +276,8 @@ jobs:
           name: Release ${{ steps.tag_version.outputs.new_tag }}
           body: ${{ steps.tag_version.outputs.changelog }}
 
-      - name: Publish to PSGallery
-        run: |
-          $version = '${{ steps.tag_version.outputs.new_tag }}'
-          $version = $version  -replace 'v', ''
-          Publish-Module -Path .\release\EmailModule\$version\ -NuGetApiKey ${{ secrets.PSGALLERY_KEY }} -Verbose
+      # - name: Publish to PSGallery
+      #   run: |
+      #     $version = '${{ steps.tag_version.outputs.new_tag }}'
+      #     $version = $version  -replace 'v', ''
+      #     Publish-Module -Path .\release\EmailModule\$version\ -NuGetApiKey ${{ secrets.PSGALLERY_KEY }} -Verbose
