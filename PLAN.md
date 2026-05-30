@@ -68,3 +68,14 @@ Get-ChildItem *.eml | Get-MimeMessage -BodyHash SHA256 | ForEach-Object {
     # Insert into DB
 }
 ```
+
+## Status
+
+- [x] C# `LoadMimeMessage` in both Core and Desktop libraries
+- [x] PowerShell `Get-MimeMessage` function in `EmailModule.psm1`
+- [x] Sample EML (`test/sample.eml`)
+- [x] Integration test scripts (`test/test-get-mime.ps1`, `test/smoke-test.ps1`)
+- [x] Docker build pipeline (`Dockerfile`, `.dockerignore`)
+- [x] CI workflow integration (`.github/workflows/tests.yml`)
+- [x] Build verified with `docker build -t email-module:test .` — all tests pass
+- [x] All changes committed on `main` (2 commits ahead of origin)
