@@ -40,7 +40,7 @@ function Get-Banner {
     Write-Output " /___/_/_/_/\_,_/_/_/ /_/  /_/\___/\_,_/\_,_/_/\__/  "
     Write-Output ""
 Write-Output "Cmdlets available:" -NoNewline
-Write-Output " Send-Email, Get-MimeMessage"
+Write-Output " Send-Email, Get-MimeMessage, Get-MboxMessage"
 Write-Output "Get help:" -NoNewline
-Write-Output " Get-Help Send-Email or Get-Help Get-MimeMessage"
+Write-Output " Get-Help Send-Email, Get-Help Get-MimeMessage, or Get-Help Get-MboxMessage"
 }
