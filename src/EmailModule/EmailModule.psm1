@@ -483,7 +483,102 @@ function Get-MimeMessage {
     #>
 }
 
-Export-ModuleMember Send-Email, Get-MimeMessage
+function Get-MboxMessage {
+    [CmdletBinding(HelpUri = 'https://github.com/Brandon-J-Navarro/Powershell_Email-Module')]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [ValidateScript({Test-Path $_})]
+        [string]
+        # Specifies the path to the .mbox file to load.
+        $Path,
+
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [ValidateSet('MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512', IgnoreCase = $true)]
+        [string]
+        # Specifies the hash algorithm to compute a body hash.
+        # The hash is computed against BodyHtml if present, otherwise BodyText.
+        # The value is appended as: BodyHtml=<HashType>=<hash> or BodyText=<HashType>=<hash>
+        $BodyHash
+    )
+
+    $resolvedPath = Resolve-Path -Path $Path | Select-Object -ExpandProperty Path
+    $messages = [EmailCommands]::LoadMboxMessages($resolvedPath, $BodyHash)
+    
+    foreach ($msg in $messages) {
+        [PSCustomObject]$msg
+    }
+
+    <#
+    .SYNOPSIS
+    Reads messages from an MBOX file and streams them as PowerShell objects.
+
+    .DESCRIPTION
+    The Get-MboxMessage function reads an MBOX file (a text file containing one or more
+    email messages) and parses each message using the MimeKit library. Messages are streamed
+    one at a time as [PSCustomObject] with properties including MessageId, Date, Subject,
+    From, To, Cc, Bcc, ReplyTo, Sender, Priority, Importance, body content, attachments,
+    headers, and more.
+
+    MBOX format separates messages with a line starting with "From " (space after From,
+    not the "From:" header). Each message is RFC 822 compliant email format.
+
+    An optional -BodyHash parameter computes a hash of the body content (BodyHtml if present,
+    otherwise BodyText) and adds a BodyHash property with the format:
+        BodyHtml=<HashType>=<hex_hash>  or  BodyText=<HashType>=<hex_hash>
+
+    Supported hash algorithms: MD5, SHA1, SHA256, SHA384, SHA512
+
+    .INPUTS
+    System.String
+    You can pipe a file path to Get-MboxMessage.
+
+    .OUTPUTS
+    System.Management.Automation.PSCustomObject
+    Get-MboxMessage returns multiple custom objects (one per message), each with properties
+    from the parsed email message.
+
+    .EXAMPLE
+    # Basic usage - stream all messages from MBOX file
+    Get-MboxMessage -Path 'emails.mbox'
+
+    .EXAMPLE
+    # With body hash
+    Get-MboxMessage -Path 'emails.mbox' -BodyHash SHA256
+
+    .EXAMPLE
+    # Process each message with ForEach-Object
+    Get-MboxMessage -Path 'emails.mbox' | ForEach-Object {
+        Write-Output "From: $($_.From) Subject: $($_.Subject)"
+    }
+
+    .EXAMPLE
+    # Export all messages to CSV
+    Get-MboxMessage -Path 'emails.mbox' | Export-Csv messages.csv -NoTypeInformation
+
+    .EXAMPLE
+    # Pipe to Get-MimeMessage for additional processing (if needed)
+    Get-MboxMessage -Path 'emails.mbox' | ForEach-Object {
+        Write-Output "Processing: $($_.Subject)"
+    }
+
+    .EXAMPLE
+    # Count total messages in MBOX file
+    (Get-MboxMessage -Path 'emails.mbox' | Measure-Object).Count
+
+    .EXAMPLE
+    # Find messages from specific sender
+    Get-MboxMessage -Path 'emails.mbox' | Where-Object { $_.From -like '*@example.com' }
+
+    .LINK
+    Source Code: https://github.com/Brandon-J-Navarro/Powershell_Email-Module
+
+    .LINK
+    Get-MimeMessage: https://github.com/Brandon-J-Navarro/Powershell_Email-Module
+    #>
+}
+
+Export-ModuleMember Send-Email, Get-MimeMessage, Get-MboxMessage
 
 
 # Show banner after module is imported (optional)

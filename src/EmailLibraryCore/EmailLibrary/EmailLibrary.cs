@@ -362,7 +362,7 @@ public class EmailCommands
         return string.IsNullOrEmpty(addr.Name) ? addr.Address : $"{addr.Name} <{addr.Address}>";
     }
 
-    private static object ConvertHeadersToDictionary(HeaderList headers)
+    private static object? ConvertHeadersToDictionary(HeaderList headers)
     {
         if (headers == null || headers.Count == 0) return null;
         
@@ -386,5 +386,115 @@ public class EmailCommands
             "SHA512" => SHA512.Create(),
             _ => null,
         };
+    }
+
+    public static List<Dictionary<string, object?>> LoadMboxMessages(string filePath, string? bodyHash = null)
+    {
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException($"MBOX file not found: {filePath}", filePath);
+
+        var messages = new List<Dictionary<string, object?>>();
+        var lines = File.ReadAllLines(filePath);
+        var messageLines = new List<string>();
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            
+            // MBOX message boundary: "From " at start of line (not "From:" which is a header)
+            if (i > 0 && line.StartsWith("From ", StringComparison.Ordinal) && !line.StartsWith("From:", StringComparison.Ordinal))
+            {
+                // Process accumulated message
+                if (messageLines.Count > 0)
+                {
+                    var msg = ParseMimeMessage(messageLines, bodyHash);
+                    if (msg != null)
+                        messages.Add(msg);
+                    messageLines.Clear();
+                }
+            }
+
+            messageLines.Add(line);
+        }
+
+        // Process last message
+        if (messageLines.Count > 0)
+        {
+            var msg = ParseMimeMessage(messageLines, bodyHash);
+            if (msg != null)
+                messages.Add(msg);
+        }
+
+        return messages;
+    }
+
+    private static Dictionary<string, object?>? ParseMimeMessage(List<string> messageLines, string? bodyHash)
+    {
+        try
+        {
+            // Convert lines to a memory stream for MimeMessage parsing
+            string messageContent = string.Join("\r\n", messageLines);
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(messageContent));
+            
+            var msg = MimeMessage.Load(stream);
+            var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+            result["MessageId"] = msg.MessageId;
+            result["Date"] = msg.Date.UtcDateTime;
+            result["Subject"] = msg.Subject;
+
+            result["From"] = FormatInternetAddressList(msg.From);
+            result["Sender"] = msg.Sender != null ? FormatMailboxAddress(msg.Sender) : null;
+            result["ReplyTo"] = FormatInternetAddressList(msg.ReplyTo);
+            result["To"] = FormatInternetAddressList(msg.To);
+            result["Cc"] = FormatInternetAddressList(msg.Cc);
+            result["Bcc"] = FormatInternetAddressList(msg.Bcc);
+
+            result["Priority"] = msg.Priority.ToString();
+            result["Importance"] = msg.Importance.ToString();
+            result["XPriority"] = msg.XPriority.ToString();
+
+            result["InReplyTo"] = msg.InReplyTo;
+            result["References"] = msg.References;
+
+            result["MimeVersion"] = msg.MimeVersion?.ToString();
+            result["ContentType"] = msg.Body?.ContentType?.MimeType;
+            result["ContentTransferEncoding"] = msg.Body is MimePart mp ? mp.ContentTransferEncoding.ToString() : null;
+
+            result["BodyText"] = msg.TextBody;
+            result["BodyHtml"] = msg.HtmlBody;
+
+            var attachmentNames = new List<string>();
+            foreach (var attachment in msg.Attachments)
+            {
+                if (attachment is MimePart part && !string.IsNullOrEmpty(part.FileName))
+                    attachmentNames.Add(part.FileName);
+            }
+            result["Attachments"] = attachmentNames.Count > 0 ? string.Join("; ", attachmentNames) : null;
+
+            result["Headers"] = ConvertHeadersToDictionary(msg.Headers);
+
+            if (!string.IsNullOrEmpty(bodyHash))
+            {
+                var bodyContent = !string.IsNullOrEmpty(msg.HtmlBody) ? msg.HtmlBody : msg.TextBody;
+                if (bodyContent != null)
+                {
+                    using var hasher = CreateHasher(bodyHash);
+                    if (hasher != null)
+                    {
+                        var hashBytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(bodyContent));
+                        var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                        var prefix = !string.IsNullOrEmpty(msg.HtmlBody) ? "BodyHtml" : "BodyText";
+                        result["BodyHash"] = $"{prefix}={bodyHash.ToUpperInvariant()}={hashString}";
+                    }
+                }
+            }
+
+            return result;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
